@@ -1,0 +1,83 @@
+{% extends 'base.html' %}
+{% block heading %}本期计量批次发布{% endblock %}
+{% block body %}
+<div data-batch="{{ batch.batch_id }}" data-version="{{ batch.version }}"></div>
+<div class="grid">
+  <section class="panel">
+    <div class="receipt">
+      <div><div class="serial">{{ batch.batch_no }}</div><strong>本期计量批次 / 承接期 {{ batch.period }}</strong></div>
+      <span class="serial">V{{ batch.version }} / {{ batch.status }}</span>
+    </div>
+    <div class="panel__body inputs">
+      <select id="dataset" aria-label="申报批">
+        <option value="late_september.csv">九月批次·含八月迟到补录</option>
+        <option value="dirty.csv">计量申报·混合批</option>
+        <option value="clean.csv">常规申报</option>
+      </select>
+      <button id="prepare" class="primary">生成本期批次</button>
+      <button id="publish">发布版本</button>
+      <button id="publish-fail">演练发布失败</button>
+      <button id="rollback">追回当前版</button>
+      <span id="notice" role="status"></span>
+    </div>
+
+    <div class="panel__head"><h2>迟到申报承接说明</h2><span>{{ batch.payload.impact_totals.late_records }} 条</span></div>
+    <div class="table-scroll">
+      <table class="ledger">
+        <thead><tr><th>申报编号</th><th>原属期(责任)</th><th>承接开放期</th><th>清单项</th><th>本期工程量</th><th>并入金额</th><th>实算净额</th><th>结论</th><th>依据</th></tr></thead>
+        <tbody>
+        {% for item in batch.payload.late_claims %}
+          <tr>
+            <td>{{ item.claim_id }}</td>
+            <td>{{ item.origin_period }}</td>
+            <td>{{ item.carry_to }}</td>
+            <td>{{ item.get('item','—') }}</td>
+            <td>{{ item.increment_qty }}</td>
+            <td>{{ item.gross_amount }}</td>
+            <td>{{ item.expected }}</td>
+            <td>{{ '已承接' if item.accepted else '隔离·'+item.reason }}</td>
+            <td class="basis" title="{{ item.get('basis', item.get('detail','')) }}">{{ item.get('basis', item.get('detail','—')) }}</td>
+          </tr>
+        {% else %}
+          <tr><td class="empty" colspan="9">本批次无迟到申报，量全部按当期正常申报出账。</td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <div class="panel__head"><h2>量影响汇总</h2><span>并入承接期 {{ batch.period }}</span></div>
+    <div class="panel__body">
+      {% for key,value in batch.payload.impact_totals.items() %}
+      <div class="audit-line"><span>{{ labels.get(key,key) }}</span><b>{{ value }}</b></div>
+      {% endfor %}
+    </div>
+  </section>
+
+  <div class="stack">
+    <section class="panel">
+      <div class="panel__head"><h2>版本快照（可追回/恢复）</h2><span>{{ batch.versions|length }} 版</span></div>
+      <div class="panel__body">
+        {% for v in batch.versions %}
+        <div class="audit-line">
+          <span>V{{ v.version }} / {{ v.status }} / {{ v.created_at[:19] }} UTC</span>
+          <button class="restore-btn" data-version="{{ v.version }}">恢复此版</button>
+        </div>
+        {% else %}
+        <div class="empty">尚未发布，发布后在此留存不可变快照。</div>
+        {% endfor %}
+      </div>
+    </section>
+    <section class="panel">
+      <div class="panel__head"><h2>批次清单</h2><span>{{ history_batches|length }}</span></div>
+      <div class="panel__body">
+        {% for b in history_batches %}
+        <div class="audit-line"><a href="/api/batches/{{ b.batch_id }}"><span>{{ b.batch_no }} / {{ b.period }} / V{{ b.version }} / {{ b.status }}</span></a><b>{{ b.digest }}</b></div>
+        {% else %}
+        <div class="empty">暂无批次。</div>
+        {% endfor %}
+      </div>
+    </section>
+  </div>
+</div>
+{% endblock %}
+{% block scripts %}<script src="/static/batches.js"></script>{% endblock %}

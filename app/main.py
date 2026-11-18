@@ -1,8 +1,10 @@
 from flask import Flask,jsonify,request,send_from_directory
+import sqlite3
 from app.config import ROOT,DATA_DIR,MODULES
 from app.errors import DomainError
 from app import pipeline,store
 from app.web import register_pages
+from app.batches import handler as batches_handler
 import importlib
 def create_app():
     application=Flask(__name__,template_folder="templates",static_folder="static")
@@ -15,6 +17,10 @@ def create_app():
     def invalid_shape(error): return jsonify({"code":"INVALID_INPUT","message":"字段或参数无效，请核对输入"}),422
     @application.errorhandler(413)
     def too_large(error): return jsonify({"code":"TOO_LARGE","message":"文件超过4MB"}),413
+    @application.errorhandler(sqlite3.Error)
+    def storage_failure(error):
+        # 发布等写操作故障：事务已整体回滚，上一版保持不变，可重新发布或恢复。
+        return jsonify({"code":"PUBLISH_FAILED","message":"发布失败，已保留上一版并可恢复"}),500
     @application.get("/healthz")
     def health(): return {"status":"ok"}
     @application.post("/api/runs")
@@ -48,6 +54,7 @@ def create_app():
     for index,(slug,title) in enumerate(MODULES,1):
         module=importlib.import_module(f"app.modules.m{index}_{slug}.handler")
         application.register_blueprint(module.bp)
+    application.register_blueprint(batches_handler.bp)
     register_pages(application)
     return application
 app=create_app()

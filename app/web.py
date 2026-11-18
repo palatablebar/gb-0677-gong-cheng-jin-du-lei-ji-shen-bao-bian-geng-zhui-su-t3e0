@@ -2,6 +2,8 @@ from flask import render_template
 from app.config import MODULES,TITLE,SHORT
 from app.pipeline import execute,load_sample
 from app import store
+from app.batches import rules as batch_rules
+from app.batches import store as batch_store
 def register_pages(app):
     def page(index):
         run=store.latest() or execute(load_sample("dirty.csv"))
@@ -14,3 +16,17 @@ def register_pages(app):
     app.add_url_rule("/",view_func=lambda:page(4))
     for index,(slug,name) in enumerate(MODULES):
         app.add_url_rule("/"+slug,endpoint="page_"+slug,view_func=lambda index=index:page(index))
+
+    def batches_page():
+        params={"periods":{"2026-08":"closed","2026-09":"open"},
+                "late_claims":[{"claim_id":"L002","period":"2026-08","carry_to":"2026-09"}]}
+        if not batch_store.list_batches():
+            batch_rules.prepare_sample("late_september.csv",params)
+        batch=batch_store.list_batches()[0]
+        batch=batch_store.get_batch(batch["batch_id"])
+        labels={'late_records':'迟到申报条数','late_accepted':'已承接条数','late_quarantine':'隔离条数',
+                'late_gross_amount':'迟到并入金额','late_expected':'迟到并入净额'}
+        return render_template("batches.html",title=TITLE,short=SHORT,modules=MODULES,index=len(MODULES),
+                               run=store.latest() or execute(load_sample("dirty.csv")),
+                               batch=batch,history_batches=batch_store.list_batches(),labels=labels)
+    app.add_url_rule("/batches",endpoint="page_batches",view_func=batches_page)

@@ -20,6 +20,13 @@ docker compose exec -T app pytest -q
 - 5. 扣回核算：`/deductions`，`/api/deductions`。
 - 6. 进度对账：`/valuation`，`/api/valuation`。
 - 7. 签证归档：`/certificates`，`/api/certificates`。
+- 8. 批次发布：`/batches`，`/api/batches`（迟到承接、版本发布、追回与恢复）。
+
+## 迟到申报与发布批次
+
+八月批次闭口后才发现的施工日志补录，不重开原月、不覆盖原批。`periods` 声明期间 `closed/open`，`late_claims` 登记原属期与开放承接期；开放期代收迟到量并按九月出账，同时保留 `origin_period` 与 `carry_basis` 把责任溯源到原属期。每条迟到申报在批次中说明承接期、量/价影响与依据，校验失败行进隔离。
+
+发布批次身份为 sha256(输入+参数+规则版本)，同一输入重跑不新增批次；每次发布生成不可变版本快照，旧版可追回（rollback）并可恢复为新版本（restore，不覆盖旧版）。发布走单事务，`fail:true` 可演练故障：失败整体回滚、上一版保留可恢复，陈旧版本写操作返回409。
 
 ## 核心规则
 

@@ -1,0 +1,3 @@
+claim_id,item,period,cumulative_qty,previous_qty,change_id,reversal,reported,note
+L001,钢筋,2026-09,240,225,C0,none,1275.00,九月正常申报
+L002,002,2026-08,220,200,C0,none,1700.00,八月施工日志补录迟到
